@@ -11,4 +11,5 @@
 # jdk
 #--alias=myopenjdk openjdk:8-jre
 # nacos
---alias=sharenacos nacos/nacos-server:v2.0.3
+#--alias=sharenacos nacos/nacos-server:v2.0.3
+--alias=bitnami-mysql mysql:8.0
