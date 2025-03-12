@@ -21,5 +21,6 @@
 #--alias=bitnami-nginx bitnami/nginx:1.27
 #--alias=emqx-emqx emqx/emqx:5.8
 #--alias=emqx-emqx-arm64 --platform=linux/arm64 emqx/emqx:5.8
---alias=bitnami-kafka bitnami/kafka:3.9
---alias=nacos-nacos-server nacos/nacos-server:v2.5.0
+#--alias=bitnami-kafka bitnami/kafka:3.9
+--alias=onlyoffice-documentserver onlyoffice/documentserver:8.3.1
+--alias=vaultwarden-server vaultwarden/server
