@@ -1,6 +1,6 @@
 #支持别名（格式为 '--alias=custom_image_name' ）
---alias=coracoo-d-tgtadm ghcr.io/coracoo/d-tgtadm:latest
-#--alias=unblock-netease-music-enhanced pan93412/unblock-netease-music-enhanced
+#--alias=coracoo-d-tgtadm ghcr.io/coracoo/d-tgtadm:latest
+--alias=pdns-auth-49:4.9.4 powerdns/pdns-auth-49:4.9.4
 #--alias=mynginx nginx:1.26.2-alpine-perl
 #支持私库
 #k8s.gcr.io/kube-state-metrics/kube-state-metrics:v2.0.0
