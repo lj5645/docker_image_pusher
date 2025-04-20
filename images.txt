@@ -1,5 +1,5 @@
 #支持别名（格式为 '--alias=custom_image_name' ）
-#--alias=coracoo-d-tgtadm ghcr.io/coracoo/d-tgtadm:latest
+--alias=tabby-connection-gateway ghcr.io/eugeny/tabby-connection-gateway:master
 --alias=tabby-web ghcr.io/eugeny/tabby-web:latest
 #支持私库
 #k8s.gcr.io/kube-state-metrics/kube-state-metrics:v2.0.0
