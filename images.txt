@@ -1,6 +1,6 @@
 #支持别名（格式为 '--alias=custom_image_name' ）
 #--alias=coracoo-d-tgtadm ghcr.io/coracoo/d-tgtadm:latest
-#--alias=mynginx nginx:1.26.2-alpine-perl
+--alias=tabby-web ghcr.io/eugeny/tabby-web:latest
 #支持私库
 #k8s.gcr.io/kube-state-metrics/kube-state-metrics:v2.0.0
 #xhofe/alist:latest
@@ -21,7 +21,7 @@
 #--alias=bitnami-nginx bitnami/nginx:1.27
 #--alias=emqx-emqx emqx/emqx:5.8
 #--alias=emqx-emqx-arm64 --platform=linux/arm64 emqx/emqx:5.8
---alias=powerdnsadmin powerdnsadmin/pda-legacy:v0.4.2
---alias=powerdns-pdns-auth-49 powerdns/pdns-auth-49:4.9.4
---alias=onlyoffice-documentserver onlyoffice/documentserver:8.3.3
+#--alias=powerdnsadmin powerdnsadmin/pda-legacy:v0.4.2
+#--alias=powerdns-pdns-auth-49 powerdns/pdns-auth-49:4.9.4
+#--alias=onlyoffice-documentserver onlyoffice/documentserver:8.3.3
 #--alias=vaultwarden-server vaultwarden/server
