@@ -24,4 +24,4 @@
 #--alias=powerdnsadmin powerdnsadmin/pda-legacy:v0.4.2
 #--alias=powerdns-pdns-auth-49 powerdns/pdns-auth-49:4.9.4
 #--alias=onlyoffice-documentserver onlyoffice/documentserver:8.3.3
---alias=mayswind-ezbookkeeping:25.5.9 mayswind/ezbookkeeping:SNAPSHOT-20250509
+--alias=mayswind-ezbookkeeping mayswind/ezbookkeeping:SNAPSHOT-20250509
