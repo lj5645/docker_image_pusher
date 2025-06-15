@@ -3,7 +3,7 @@
 #--alias=tabby-web ghcr.io/eugeny/tabby-web:latest
 #支持私库
 #k8s.gcr.io/kube-state-metrics/kube-state-metrics:v2.0.0
---alias=crproxy ghcr.io/daocloud/crproxy/crproxy:v0.13.0-alpha.177
+--alias=crproxy ghcr.io/daocloud/crproxy/crproxy:v0.12.1
 #支持指定架构
 #--platform=linux/arm64 xiaoyaliu/alist
 # rabbitmq
