@@ -2,8 +2,9 @@
 #--alias=tabby-connection-gateway ghcr.io/eugeny/tabby-connection-gateway:master
 #--alias=tabby-web ghcr.io/eugeny/tabby-web:latest
 #支持私库
-#k8s.gcr.io/kube-state-metrics/kube-state-metrics:v2.0.0
---alias=pocketbase ghcr.io/muchobien/pocketbase:0.28.4
+--alias=d-tgtadm ghcr.io/coracoo/d-tgtadm:6901a71cc0ea2841458469eb5215dd465cc912c6
+#--alias=pocketbase ghcr.io/muchobien/pocketbase:0.28.4
+
 #支持指定架构
 #--platform=linux/arm64 xiaoyaliu/alist
 # rabbitmq
