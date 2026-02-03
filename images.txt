@@ -2,7 +2,7 @@
 #--alias=tabby-connection-gateway ghcr.io/eugeny/tabby-connection-gateway:master
 #--alias=tabby-web ghcr.io/eugeny/tabby-web:latest
 #支持私库
---alias=d-tgtadm ghcr.io/coracoo/d-tgtadm:latest
+#--alias=d-tgtadm ghcr.io/coracoo/d-tgtadm:latest
 #--alias=pocketbase ghcr.io/muchobien/pocketbase:0.28.4
 
 #支持指定架构
@@ -26,3 +26,4 @@
 #--alias=powerdns-pdns-auth-49 powerdns/pdns-auth-49:4.9.4
 #--alias=onlyoffice-documentserver onlyoffice/documentserver:8.3.3
 #--alias=mayswind-ezbookkeeping mayswind/ezbookkeeping:SNAPSHOT-20250509
+--alias=pdns-auth powerdns/pdns-auth-49:4.9.12
