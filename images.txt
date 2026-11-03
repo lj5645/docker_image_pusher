@@ -21,7 +21,6 @@
 #--alias=bitnami-redis bitnami/redis:7.4
 --alias=mailflow-backend ghcr.io/maathimself/mailflow-backend:4.1.2
 --alias=mailflow-frontend ghcr.io/maathimself/mailflow-frontend:4.1.2
-#--alias=emqx-emqx-arm64 --platform=linux/arm64 emqx/emqx:5.8
 #--alias=powerdnsadmin powerdnsadmin/pda-legacy:v0.4.2
 #--alias=powerdns-pdns-auth-49 powerdns/pdns-auth-49:4.9.4
 #--alias=onlyoffice-documentserver onlyoffice/documentserver:8.3.3
