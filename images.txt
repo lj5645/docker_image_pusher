@@ -19,11 +19,11 @@
 #--alias=powerdnsadmin-pda-legacy powerdnsadmin/pda-legacy
 #--alias=bitnami-mongodb bitnami/mongodb:8.0
 #--alias=bitnami-redis bitnami/redis:7.4
-#--alias=bitnami-nginx bitnami/nginx:1.27
-#--alias=emqx-emqx emqx/emqx:5.8
+--alias=mailflow-backend ghcr.io/maathimself/mailflow-backend:4.1.2
+--alias=mailflow-frontend ghcr.io/maathimself/mailflow-frontend:4.1.2
 #--alias=emqx-emqx-arm64 --platform=linux/arm64 emqx/emqx:5.8
 #--alias=powerdnsadmin powerdnsadmin/pda-legacy:v0.4.2
 #--alias=powerdns-pdns-auth-49 powerdns/pdns-auth-49:4.9.4
 #--alias=onlyoffice-documentserver onlyoffice/documentserver:8.3.3
---alias=powerdnsadmin powerdnsadmin/pda-legacy:v0.4.2
---alias=pdns-auth-49 powerdns/pdns-auth-49:4.9.12
+#--alias=powerdnsadmin powerdnsadmin/pda-legacy:v0.4.2
+#--alias=pdns-auth-49 powerdns/pdns-auth-49:4.9.12
