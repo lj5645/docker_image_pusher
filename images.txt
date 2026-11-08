@@ -18,7 +18,7 @@
 #--alias=psitrax-powerdns psitrax/powerdns
 #--alias=powerdnsadmin-pda-legacy powerdnsadmin/pda-legacy
 #--alias=bitnami-mongodb bitnami/mongodb:8.0
---alias=donkey ghcr.io/lj5645/donkey:v0.4.1
+--alias=donkey ghcr.io/lj5645/donkey:0.4.1.1
 #--alias=mailflow-backend ghcr.io/maathimself/mailflow-backend:4.1.2
 #--alias=mailflow-frontend ghcr.io/maathimself/mailflow-frontend:4.1.2
 #--alias=powerdnsadmin powerdnsadmin/pda-legacy:v0.4.2
