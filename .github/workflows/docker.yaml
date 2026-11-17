@@ -11,6 +11,9 @@ env:
   ALIYUN_NAME_SPACE: "${{ secrets.ALIYUN_NAME_SPACE }}"
   ALIYUN_REGISTRY_USER: "${{ secrets.ALIYUN_REGISTRY_USER }}"
   ALIYUN_REGISTRY_PASSWORD: "${{ secrets.ALIYUN_REGISTRY_PASSWORD }}"
+  # 源镜像在私有仓库时才需要，公开镜像留空即可
+  GHCR_TOKEN: "${{ secrets.GHCR_TOKEN }}"
+  GHCR_USER: "${{ secrets.GHCR_USER }}"
 
 jobs:
 
@@ -57,14 +60,61 @@ jobs:
 
     - name: Build and push image Aliyun
       run: |
-        docker login -u $ALIYUN_REGISTRY_USER -p $ALIYUN_REGISTRY_PASSWORD $ALIYUN_REGISTRY
+        set -uo pipefail
+
+        if ! docker login -u "$ALIYUN_REGISTRY_USER" -p "$ALIYUN_REGISTRY_PASSWORD" "$ALIYUN_REGISTRY"; then
+          echo "✗ 阿里云 ACR 登录失败，请检查 secrets 配置"
+          exit 1
+        fi
+
+        if [ -n "${GHCR_TOKEN:-}" ]; then
+          if ! echo "$GHCR_TOKEN" | docker login ghcr.io -u "${GHCR_USER:-github-actions}" --password-stdin; then
+            echo "✗ GHCR 登录失败（源镜像若是公开仓库可以忽略此项）"
+          fi
+        fi
+
+        # ══════════════════════════════════════════════════════════════
+        # 判断源镜像形态
+        #
+        # 背景：多架构索引在 docker pull 时会被解析成本机架构的单份
+        # manifest，之后 tag/push 出去就只剩一个平台。要保留全部平台，
+        # 必须用 buildx imagetools 做服务端复制，不经过本地镜像存储。
+        #
+        # 返回值：0 = 多架构索引    1 = 单架构 manifest    2 = 探测失败
+        #
+        # 探测失败不能当成单架构，否则会静默退化成 pull/tag/push，
+        # 又只推一个平台——正是要修的问题。
+        # ══════════════════════════════════════════════════════════════
+        classify_image() {
+          local img="$1"
+          local raw attempt rc
+
+          for attempt in 1 2 3; do
+            if raw=$(docker buildx imagetools inspect "$img" --raw 2>/dev/null); then
+              # 有 manifests 数组 → 索引（多架构）
+              if printf '%s' "$raw" | grep -q '"manifests"'; then
+                return 0
+              fi
+              # 有 config 对象 → 单个 manifest
+              if printf '%s' "$raw" | grep -q '"config"'; then
+                return 1
+              fi
+            fi
+
+            echo "  探测第 $attempt 次失败，$(( attempt * 3 )) 秒后重试: $img"
+            sleep $(( attempt * 3 ))
+          done
+
+          return 2
+        }
+
         # 数据预处理,判断镜像是否重名
         declare -A duplicate_images
         declare -A temp_map
         while IFS= read -r line || [ -n "$line" ]; do
             # 忽略空行与注释
-            [[ -z "$line" ]] && continue
-            if echo "$line" | grep -q '^\s*#'; then
+            [ -z "$line" ] && continue
+            if echo "$line" | grep -q '^[[:space:]]*#'; then
                 continue
             fi
 
@@ -73,124 +123,177 @@ jobs:
             if [ -z "$alias" ]; then
               alias="";
             fi
-            echo "alias is $alias"
-            
+
             # 获取镜像的完整名称，例如kasmweb/nginx:1.25.3（命名空间/镜像名:版本号）
             image=$(echo "$line" | awk '{print $NF}')
             # 将@sha256:等字符删除
             image="${image%%@*}"
-            echo "image $image"
             # 获取镜像名:版本号  例如nginx:1.25.3
             image_name_tag=$(echo "$image" | awk -F'/' '{print $NF}')
-            echo "image_name_tag $image_name_tag"
             # 获取命名空间 例如kasmweb,  这里有种特殊情况 docker.io/nginx，把docker.io当成命名空间，也OK
             name_space=$(echo "$image" | awk -F'/' '{if (NF==3) print $2; else if (NF==2) print $1; else print ""}')
-            echo "name_space: $name_space"
             # 这里不要是空值影响判断
             name_space="${name_space}_"
             # 获取镜像名例如nginx
             image_name=$(echo "$image_name_tag" | awk -F':' '{print $1}')
-            echo "image_name: $image_name"
             # 获取版本号 例如 1.25.3
             image_tag=$(echo "$image_name_tag" | awk -F':' '{print $2}')
             if [ -z "$image_tag" ]; then
               image_tag="latest"
             fi
-            echo "image_tag: $image_tag"
 
-            
             # 如果镜像存在于数组中，则添加temp_map
-            if [[ -n "${temp_map[$image_name]}" ]]; then
+            if [ -n "${temp_map[$image_name]:-}" ]; then
                  # 如果temp_map已经存在镜像名，判断是不是同一命名空间
-                 if [[ "${temp_map[$image_name]}" != $name_space  ]]; then
+                 if [ "${temp_map[$image_name]}" != "$name_space" ]; then
                     echo "duplicate image name: $image_name"
                     duplicate_images[$image_name]="true"
                  fi
             else
                 # 存镜像的命名空间
                 temp_map[$image_name]=$name_space
-            fi       
+            fi
         done < images.txt
-        
-        
+
+        failed=0
+        index_pushed=0
+        single_pushed=0
+
         while IFS= read -r line || [ -n "$line" ]; do
             # 忽略空行与注释
-            [[ -z "$line" ]] && continue
-            if echo "$line" | grep -q '^\s*#'; then
+            [ -z "$line" ] && continue
+            if echo "$line" | grep -q '^[[:space:]]*#'; then
                 continue
             fi
 
-            # 提取 alias 信息（使用更通用的正则表达式替代 -P 选项）
+            # 提取 alias 信息
             alias=$(echo "$line" | sed -n 's/.*--alias[ =]\([^ ]*\).*/\1/p')
             if [ -z "$alias" ]; then
-              alias="";  # 如果没有 --alias 参数，alias 变量将为空
+              alias="";
             fi
             echo "alias is $alias"
 
-            # 去除 --alias 参数及其值，但保留其他参数
-            image=$(echo "$line" | sed -E 's/--alias[ =][^ ]+//g' | xargs)
-        
-            echo "docker pull $image"
-            docker pull $image
+            # 提取 platform（显式指定时保留按平台分名的旧行为）
             platform=$(echo "$line" | awk -F'--platform[ =]' '{if (NF>1) print $2}' | awk '{print $1}')
-            echo "platform is $platform"
-            # 如果存在架构信息 将架构信息拼到镜像名称前面
-            if [ -z "$platform" ]; then
-                platform_prefix=""
-            else
-                platform_prefix="${platform//\//_}_"
-            fi
-            echo "platform_prefix is $platform_prefix"
-            # 获取镜像的完整名称，例如kasmweb/nginx:1.25.3（命名空间/镜像名:版本号）
-            image=$(echo "$line" | awk '{print $NF}')
+            echo "platform is ${platform:-<none>}"
+
+            # 去掉所有 -- 开头的参数，剩下的最后一个字段才是镜像名
+            image=$(echo "$line" | sed -E 's/--[a-z-]+[ =][^ ]+//g' | xargs | awk '{print $NF}')
+            echo "image $image"
 
             # 获取 镜像名:版本号  例如nginx:1.25.3
             image_name_tag=$(echo "$image" | awk -F'/' '{print $NF}')
-            # 获取命名空间 例如kasmweb  这里有种特殊情况 docker.io/nginx，把docker.io当成命名空间，也OK
+            # 获取命名空间 例如kasmweb
             name_space=$(echo "$image" | awk -F'/' '{if (NF==3) print $2; else if (NF==2) print $1; else print ""}')
-            # 获取镜像名例  例如nginx
+            # 获取镜像名 例如nginx
             image_name=$(echo "$image_name_tag" | awk -F':' '{print $1}')
             # 获取版本号 例如 1.25.3
             image_tag=$(echo "$image_name_tag" | awk -F':' '{print $2}')
             if [ -z "$image_tag" ]; then
               image_tag="latest"
             fi
-            echo "image_tag: $image_tag"
-            
-        
+
+            # 显式指定平台时，把平台拼进名字，避免两个架构互相覆盖
+            if [ -z "$platform" ]; then
+                platform_prefix=""
+            else
+                platform_prefix="${platform//\//_}_"
+            fi
+
             name_space_prefix=""
             # 如果镜像名重名
-            if [[ -n "${duplicate_images[$image_name]}" ]]; then
-               #如果命名空间非空，将命名空间加到前缀
-               if [[ -n "${name_space}" ]]; then
+            if [ -n "${duplicate_images[$image_name]:-}" ]; then
+               if [ -n "$name_space" ]; then
                   name_space_prefix="${name_space}_"
                fi
             fi
-            
-            
+
             # 将@sha256:等字符删除
             image_name_tag="${image_name_tag%%@*}"
-            
-            # 检查别名并替换 image_name_tag
-            alias=$(echo "$line" | awk -F'--alias[ =]' '{if (NF>1) print $2}' | awk '{print $1}')
+
+            # 引用别名替换镜像名
             if [ -n "$alias" ]; then
               image_name_tag="${alias}:${image_tag}"
             fi
-            
+
             new_image="$ALIYUN_REGISTRY/$ALIYUN_NAME_SPACE/$platform_prefix$name_space_prefix$image_name_tag"
+
+            # ── 未指定平台时，先判断源镜像形态 ──
+            if [ -z "$platform" ]; then
+              classify_image "$image"
+              shape=$?
+              case $shape in
+                0)
+                  echo "→ 多架构索引，使用 imagetools 服务端复制（不下载 layer）"
+                  echo "docker buildx imagetools create --tag $new_image $image"
+                  if docker buildx imagetools create --tag "$new_image" "$image"; then
+                    echo "✓ 索引已复制: $new_image"
+                    index_pushed=$((index_pushed + 1))
+                    echo "开始清理磁盘空间"
+                    echo "=============================================================================="
+                    df -hT
+                    echo "=============================================================================="
+                    continue
+                  fi
+                  echo "⚠ imagetools 复制失败（目标仓库可能不支持 OCI index），回退到 pull/tag/push"
+                  ;;
+                1)
+                  echo "→ 单架构 manifest，走 pull/tag/push"
+                  ;;
+                *)
+                  echo "✗ 无法判断镜像形态（网络或鉴权问题），跳过: $image"
+                  failed=$((failed + 1))
+                  continue
+                  ;;
+              esac
+            fi
+
+            # ── 单架构镜像，或显式指定了平台 → 本地 pull/tag/push ──
+            echo "docker pull $image"
+            if ! docker pull "$image"; then
+              echo "✗ 拉取失败: $image"
+              failed=$((failed + 1))
+              continue
+            fi
+
             echo "docker tag $image $new_image"
-            docker tag $image $new_image
+            if ! docker tag "$image" "$new_image"; then
+              echo "✗ 打标签失败: $image → $new_image"
+              failed=$((failed + 1))
+              docker rmi "$image" 2>/dev/null || true
+              continue
+            fi
+
             echo "docker push $new_image"
-            docker push $new_image
+            if docker push "$new_image"; then
+              echo "✓ 已推送: $new_image"
+              single_pushed=$((single_pushed + 1))
+            else
+              echo "✗ 推送失败: $new_image"
+              failed=$((failed + 1))
+            fi
+
             echo "开始清理磁盘空间"
             echo "=============================================================================="
             df -hT
             echo "=============================================================================="
-            docker rmi $image
-            docker rmi $new_image
+            docker rmi "$image" 2>/dev/null || true
+            docker rmi "$new_image" 2>/dev/null || true
             echo "磁盘空间清理完毕"
             echo "=============================================================================="
             df -hT
-            echo "=============================================================================="     
-            
+            echo "=============================================================================="
+
         done < images.txt
+
+        echo "=============================================="
+        echo "多架构索引（imagetools）: $index_pushed 个"
+        echo "单架构（pull/tag/push） : $single_pushed 个"
+        echo "失败                    : $failed 个"
+        echo "=============================================="
+
+        if [ "$failed" -ne 0 ]; then
+          echo "✗ 有 $failed 个镜像处理失败"
+          exit 1
+        fi
+        echo "✓ 全部镜像处理完成"
