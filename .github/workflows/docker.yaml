@@ -224,18 +224,35 @@ jobs:
               shape=$?
               case $shape in
                 0)
-                  echo "→ 多架构索引，使用 imagetools 服务端复制（不下载 layer）"
-                  echo "docker buildx imagetools create --tag $new_image $image"
-                  if docker buildx imagetools create --tag "$new_image" "$image"; then
-                    echo "✓ 索引已复制: $new_image"
-                    index_pushed=$((index_pushed + 1))
-                    echo "开始清理磁盘空间"
-                    echo "=============================================================================="
-                    df -hT
-                    echo "=============================================================================="
-                    continue
+                  # 只复制真实平台的 manifest，跳过 attestation（provenance/sbom）。
+                  # 阿里云 ACR 会拒收 platform=unknown/unknown 的 manifest（403），
+                  # 直接 create 整个索引会整批失败，所以按 digest 精确引用。
+                  echo "→ 多架构索引，提取真实平台 digest"
+                  src_raw=$(docker buildx imagetools inspect "$image" --raw 2>/dev/null || true)
+                  src_refs=$(printf '%s' "$src_raw" | jq -r '
+                    .manifests[]
+                    | select((.platform.os // "") != "unknown"
+                             and (.platform.architecture // "") != "unknown")
+                    | "\($ARGS.named.img)@\(.digest)"
+                  ' --arg img "$image" 2>/dev/null || true)
+
+                  if [ -z "$src_refs" ]; then
+                    echo "⚠ 未能提取平台 digest，回退到 pull/tag/push"
+                  else
+                    echo "  待复制的平台："
+                    printf '%s\n' "$src_refs" | while IFS= read -r r; do echo "    $r"; done
+                    # shellcheck disable=SC2086
+                    if docker buildx imagetools create --tag "$new_image" $src_refs; then
+                      echo "✓ 索引已复制（已剔除 attestation）: $new_image"
+                      index_pushed=$((index_pushed + 1))
+                      echo "开始清理磁盘空间"
+                      echo "=============================================================================="
+                      df -hT
+                      echo "=============================================================================="
+                      continue
+                    fi
+                    echo "⚠ imagetools 复制失败，回退到 pull/tag/push"
                   fi
-                  echo "⚠ imagetools 复制失败（目标仓库可能不支持 OCI index），回退到 pull/tag/push"
                   ;;
                 1)
                   echo "→ 单架构 manifest，走 pull/tag/push"
